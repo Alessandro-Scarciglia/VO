@@ -11,8 +11,8 @@ from sensor_msgs.msg import Image
 
 class IntelD435(Node):
     def __init__(self):
-        super().__init__('d435')
-        self.get_logger().info('d435 started.')
+        super().__init__('d435_camera')
+        self.get_logger().info('Intel RealSense D435 camera started.')
 
         # Attributes
         self.pipeline = rs.pipeline()
@@ -48,7 +48,7 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('Nodo interrotto manualmente')
+        node.get_logger().info('Node manually interrupted.')
     finally:
         node.destroy_node()
         rclpy.shutdown()

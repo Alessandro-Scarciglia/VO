@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
         'camera = camera.d435:main',
+        'virtual_camera = camera.virtual_camera:main'
         ],
     },
 )
