@@ -26,6 +26,8 @@ class VisualOdometry:
         self.initial_pose = initial_pose
         self.trajectory = [initial_pose]
         k_mtx = calculate_intrinsic_matrix(fov=fov, resolution=resolution)
+        self.last_rel = initial_pose
+        self.last_rel[1:3, 3] += 1e-3
 
         # Agents
         self.preprocessor = Preprocessor(sigma=sigma)
@@ -50,14 +52,20 @@ class VisualOdometry:
 
         # Match features
         matches = self.matcher.match(descriptors_0, descriptors_1)
-        #draw_matches(frame_0, keypoints_0, frame_1, keypoints_1, matches)
 
-        # Estimate relative pose from frame_0 to frame_1
-        pose_0_to_1 = self.motion_estimator.compute_relative_motion(keypoints_0, keypoints_1, matches)
+        # Compute relative motion from 0 to 1
+        pose_0_to_1 = self.motion_estimator.compute_relative_motion(keypoints_0, keypoints_1, matches, self.last_rel)
 
         # Integrate motion with respect to the trajectory
-        pose_1 = pose_0_to_1 @ self.trajectory[-1]
+        rotm_1 = pose_0_to_1[:3, :3] @ self.trajectory[-1][:3, :3]
+        t_1 = self.trajectory[-1][:3, 3] + self.trajectory[-1][:3, :3] @ pose_0_to_1[:3, 3]
+
+        # Build homogeneous matrix
+        pose_1 = np.eye(4)
+        pose_1[:3, :3] = rotm_1
+        pose_1[:3, 3] = t_1.ravel() 
         self.trajectory.append(pose_1)
+        self.last_rel = pose_0_to_1
 
         return pose_1
 
@@ -67,7 +75,7 @@ if __name__ == "__main__":
 
     # Set resolution
     RES = 1024
-    SKIP = 2
+    SKIP = 10
 
     # Load data
     with open(f"/home/visione/Projects/VO/src/dataset/Orbit_{RES}/transforms.json", "r") as train_fopen:
@@ -83,11 +91,14 @@ if __name__ == "__main__":
                         fov=fov,
                         resolution=(RES, RES))
 
-    for i in tqdm(range(0, 90-SKIP)):
+    for i in tqdm(range(0, 360-SKIP, SKIP)):
 
         # Two example frames
         frame_0 = cv2.imread(f"/home/visione/Projects/VO/src/dataset/Orbit_{RES}/" + str(i).zfill(3) + ".png", 0)
         frame_1 = cv2.imread(f"/home/visione/Projects/VO/src/dataset/Orbit_{RES}/" + str(i+SKIP).zfill(3) + ".png", 0)
+
+        if frame_1 is None:
+            continue
 
         vo.update_trajectory(frame_0, frame_1)
     
